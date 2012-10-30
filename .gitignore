@@ -1,0 +1,6 @@
+test.py
+*.pyc
+*.tmp
+database/*
+!database/README
+credentials.json

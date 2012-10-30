@@ -1,0 +1,9 @@
+#!/bin/sh
+rm twycrawler/*.pyc
+rm tmp/*.tmp
+
+if [ "$1" = "all" ]; then
+        rm database/twitter.db
+fi
+
+echo "clean done!"
