@@ -4,9 +4,10 @@ sys.path.append('./twycrawler')
 import twycrawler as twc
 import tweepy
 from collections import deque
+from tweepy.error import TweepError
 
 # misc settings
-retry_timeout = 10
+retry_timeout = 960 # 16 min (more than the twitter's 15 min window)
 
 # authenticate
 credentials = twc.read_credentials('credentials/credentials.json')
@@ -24,7 +25,6 @@ if queue and visited:
 else:
     queue = deque([int(me.id)])
     visited = set([int(me.id)])
-
 while queue:
     try:
         current_id = queue.popleft()
@@ -32,17 +32,19 @@ while queue:
         current_user = None
         try:
             current_user = api.get_user(current_id)
-            name = current_user.name
-            print "current id %d, name: %s" % (current_id, name)
+            print "current id: %d" % current_id
             # get neighbors (friends)
             friends_ids = api.friends_ids(current_id)
             # get user's most recent tweets
             tweets = api.user_timeline(current_id)
-        except tweepy.error.TweepError:
-            # wait a few seconds
-            time.sleep(retry_timeout)
-            # retry later
-            queue.appendleft(current_id)
+        except TweepError as e:
+            if e.response.status != 401:
+                # if user timeline is private skip it
+                # otherwise wait some time before retry
+                time.sleep(retry_timeout)
+                # retry later
+                queue.appendleft(current_id)
+            continue
 
         # discard any user that already exists
         if not twc.user_exists(current_id):
@@ -52,6 +54,8 @@ while queue:
             if not friend in visited:
                 visited.add(friend)
                 queue.append(friend)
+
+        time.sleep(70) # wait a bit till next call (~15 calls per 15 min)
     except KeyboardInterrupt:
         # save current queue
         twc.save_queue(queue, visited)
